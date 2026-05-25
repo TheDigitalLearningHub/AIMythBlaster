@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Myth-Blaster: Gamified Learning Arcade</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #03001e;
+            overflow-x: hidden;
+        }
+        /* Lock screen strictly during gameplay to prevent accidental scroll shifts */
+        body.game-active {
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+        }
+        body:not(.game-active) {
+            overflow-y: auto;
+        }
+        .arcade-font {
+            font-family: 'Press Start 2P', cursive;
+        }
+        /* Custom glow effects */
+        .neon-border {
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.4), inset 0 0 15px rgba(168, 85, 247, 0.2);
+        }
+        .neon-text-green {
+            text-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+        }
+        .neon-text-pink {
+            text-shadow: 0 0 8px rgba(236, 72, 153, 0.6);
+        }
+        .neon-text-blue {
+            text-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
+        }
+        /* Animated space starfield background */
+        @keyframes move-stars {
+            from { transform: translateY(0px); }
+            to { transform: translateY(-1000px); }
+        }
+        .stars-bg {
+            background-image: 
+                radial-gradient(1px 1px at 25px 50px, #fff, transparent),
+                radial-gradient(1.5px 1.5px at 100px 150px, #fff, transparent),
+                radial-gradient(2px 2px at 200px 300px, #fff, transparent),
+                radial-gradient(1.5px 1.5px at 300px 450px, #fff, transparent),
+                radial-gradient(1px 1px at 450px 100px, #fff, transparent),
+                radial-gradient(2.5px 2.5px at 150px 500px, #a855f7, transparent),
+                radial-gradient(2px 2px at 400px 250px, #ec4899, transparent);
+            background-size: 550px 550px;
+            animation: move-stars 30s linear infinite;
+        }
+        /* Shake effect for hits */
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0); }
+            10%, 30%, 50%, 70%, 90% { transform: translate(-3px, 0); }
+            20%, 40%, 60%, 80% { transform: translate(3px, 0); }
+        }
+        .shake-active {
+            animation: shake 0.35s ease-in-out;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(168, 85, 247, 0.4);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(236, 72, 153, 0.6);
+        }
+    </style>
+</head>
+<body class="flex flex-col justify-between text-white select-none relative overflow-x-hidden min-h-screen">
+
+    <div class="absolute inset-0 z-0 pointer-events-none overflow-hidden opacity-60">
+        <div class="absolute inset-0 stars-bg"></div>
+        <div class="absolute inset-0 stars-bg" style="animation-duration: 50s; opacity: 0.5; transform: scale(1.5);"></div>
+    </div>
+
+    <div class="relative z-10 flex-grow flex flex-col items-center justify-between p-2 sm:p-4 max-w-6xl mx-auto w-full h-full">
+       
+        <header id="game-header" class="w-full flex-shrink-0 flex items-center justify-between bg-slate-900/80 border border-purple-500/30 rounded-2xl p-3 sm:p-4 gap-4 backdrop-blur-md">
+            <div class="flex items-center space-x-3">
+                <div class="bg-gradient-to-br from-purple-600 to-pink-500 p-2 rounded-xl shadow-lg">
+                    <i class="fa-solid fa-shuttle-space text-xl sm:text-2xl text-white transform -rotate-45"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold tracking-wider bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">MYTH-BLASTER</h1>
+                    <p class="text-[10px] sm:text-xs text-slate-400 font-medium">AI & Data Science Edition</p>
+                </div>
+            </div>
+
+            <div id="hud-stats" class="hidden sm:flex items-center space-x-6 text-sm">
+                <div class="bg-slate-800/60 px-4 py-1.5 rounded-xl border border-slate-700/50">
+                    <span class="text-slate-400 block text-[10px] uppercase tracking-widest font-semibold">Wave</span>
+                    <span id="hud-wave" class="text-pink-400 font-bold text-base arcade-font">1/10</span>
+                </div>
+                <div class="bg-slate-800/60 px-4 py-1.5 rounded-xl border border-slate-700/50">
+                    <span class="text-slate-400 block text-[10px] uppercase tracking-widest font-semibold">Score</span>
+                    <span id="hud-score" class="text-green-400 font-bold text-base arcade-font">0000</span>
+                </div>
+                <div class="bg-slate-800/60 px-4 py-1.5 rounded-xl border border-slate-700/50">
+                    <span class="text-slate-400 block text-[10px] uppercase tracking-widest font-semibold">Shield System</span>
+                    <div id="hud-shields" class="flex items-center space-x-1 mt-0.5 text-rose-500 text-base">
+                        <i class="fa-solid fa-heart animate-pulse"></i>
+                        <i class="fa-solid fa-heart animate-pulse"></i>
+                        <i class="fa-solid fa-heart animate-pulse"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <button id="toggle-audio-btn" class="p-2 bg-slate-800/80 hover:bg-slate-700 border border-slate-600 rounded-xl transition-all" title="Toggle Sound Synth">
+                    <i id="audio-icon" class="fa-solid fa-volume-high text-slate-300"></i>
+                </button>
+            </div>
+        </header>
+
+        <main class="w-full flex-grow flex items-center justify-center my-3 relative overflow-hidden">
+            
+            <section id="screen-start" class="w-full max-w-2xl bg-slate-950/90 border-2 border-purple-500/50 rounded-3xl p-4 sm:p-6 shadow-2xl backdrop-blur-xl flex flex-col items-center text-center space-y-4">
+                <h2 class="text-xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 via-purple-400 to-pink-500 bg-clip-text text-transparent">AI MYTH-BLASTER</h2>
+                <p class="text-xs sm:text-sm text-slate-300">Test your wisdom in artificial intelligence and data science! Defend your shield against industry fallacies.</p>
+
+                <div class="w-full bg-slate-900/80 border border-slate-800 rounded-2xl p-4 text-left space-y-3.5 text-xs sm:text-sm">
+                    <h3 class="font-bold text-pink-400 flex items-center gap-2"><i class="fa-solid fa-gamepad"></i> MISSION BRIEFING</h3>
+                    <ul class="space-y-2.5 text-slate-300">
+                        <li class="flex items-start gap-2.5">
+                            <span class="bg-pink-900/50 text-pink-300 font-bold px-2 py-0.5 rounded text-[9px] border border-pink-600/30">RULE</span>
+                            <span>Blast only the <b>AI Myth</b> (1 per wave). Ignore the 2 realities.</span>
+                        </li>
+                        <li class="flex items-start gap-2.5">
+                            <span class="bg-purple-900/50 text-purple-300 font-bold px-2 py-0.5 rounded text-[9px] border border-purple-600/30">MOVE</span>
+                            <span>Move your ship with your mouse (or keyboard A/D, Arrow keys, or swipe on touch screens).</span>
+                        </li>
+                        <li class="flex items-start gap-2.5">
+                            <span class="bg-purple-900/50 text-purple-300 font-bold px-2 py-0.5 rounded text-[9px] border border-purple-600/30">FIRE</span>
+                            <span>Click (or press Space / Up Arrow) to fire lasers.</span>
+                        </li>
+                        <li class="flex items-start gap-2.5">
+                            <span class="bg-rose-900/50 text-rose-300 font-bold px-2 py-0.5 rounded text-[9px] border border-rose-600/30">HEALTH</span>
+                            <span>Hitting real facts or letting a myth reach the bottom will burn your shield.</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="w-full bg-slate-900/50 border border-purple-900/40 rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+                    <div class="w-full md:w-1/2 text-left space-y-1">
+                        <label for="pilot-nickname" class="block text-xs font-bold text-purple-400 uppercase tracking-widest">Pilot Designation</label>
+                        <input id="pilot-nickname" type="text" maxlength="15" placeholder="RECRUIT_PILOT" class="w-full bg-slate-950/95 border border-purple-500/40 rounded-xl px-3 py-2 text-sm font-bold tracking-widest text-center text-white uppercase focus:outline-none focus:ring-1 focus:ring-pink-500 transition-all">
+                    </div>
+                    
+                    <div class="w-full md:w-1/2 text-left bg-slate-950/80 rounded-xl p-3 border border-slate-800">
+                        <h4 class="text-[10px] font-bold text-pink-400 tracking-wider mb-1.5 uppercase flex items-center justify-between">
+                            <span><i class="fa-solid fa-trophy mr-1"></i> Global Best Runs</span>
+                            <span id="sync-indicator" class="text-[9px] font-normal text-slate-500"><i class="fa-solid fa-arrows-rotate animate-spin mr-1"></i>Syncing</span>
+                        </h4>
+                        <div id="quick-high-scores" class="space-y-1 text-xs text-slate-400">
+                            <p class="italic text-[11px] text-slate-500">Retrieving global standings...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-3 w-full">
+                    <button id="start-game-btn" class="flex-grow py-3 px-6 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 font-bold text-sm sm:text-base rounded-2xl shadow-[0_0_20px_rgba(168,85,247,0.5)] transition-all hover:scale-[102%] active:scale-95 text-white">
+                        LAUNCH MISSION <i class="fa-solid fa-jet-fighter ms-2"></i>
+                    </button>
+                </div>
+            </section>
+
+            <section id="screen-game" class="hidden w-full max-w-4xl h-full bg-slate-950/80 border-2 border-purple-500/40 rounded-3xl overflow-hidden relative shadow-2xl backdrop-blur-md flex flex-col">
+                
+                <div id="instant-feedback-overlay" class="absolute inset-x-0 top-1/4 z-30 pointer-events-none flex flex-col items-center justify-center opacity-0 scale-90 transition-all duration-300">
+                    <div id="feedback-bubble" class="px-5 py-3 rounded-2xl font-extrabold uppercase tracking-widest text-center border text-xs sm:text-base"></div>
+                </div>
+
+                <div id="wave-pulse-overlay" class="absolute inset-x-0 top-1/4 z-20 pointer-events-none flex items-center justify-center opacity-0 transition-opacity duration-300">
+                    <span id="wave-pulse-text" class="arcade-font text-xs sm:text-sm text-pink-400 bg-slate-950/90 border border-pink-500/30 px-4 py-3 rounded-xl tracking-widest shadow-[0_0_20px_rgba(236,72,153,0.5)]"></span>
+                </div>
+
+                <div class="sm:hidden flex items-center justify-between px-4 py-2.5 bg-slate-900/90 border-b border-purple-500/20 text-xs flex-shrink-0 font-medium">
+                    <div>
+                        <span class="text-slate-400 text-[9px] block">WAVE</span>
+                        <span id="mob-hud-wave" class="text-pink-400 arcade-font">1/10</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 text-[9px] block">SCORE</span>
+                        <span id="mob-hud-score" class="text-green-400 arcade-font">0000</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 text-[9px] block">SHIELD</span>
+                        <div id="mob-hud-shields" class="flex items-center space-x-0.5 text-rose-500">
+                            <i class="fa-solid fa-heart"></i>
+                            <i class="fa-solid fa-heart"></i>
+                            <i class="fa-solid fa-heart"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="game-stage" class="relative w-full flex-grow cursor-crosshair overflow-hidden">
+                    
+                    <div class="absolute inset-0 grid grid-cols-3 pointer-events-none z-0">
+                        <div class="border-r border-slate-800/40"></div>
+                        <div class="border-r border-slate-800/40"></div>
+                        <div></div>
+                    </div>
+
+                    <div id="tiles-container" class="absolute inset-x-0 top-0 bottom-16 z-10"></div>
+                    <div id="lasers-container" class="absolute inset-0 pointer-events-none z-15"></div>
+                    <div id="particles-container" class="absolute inset-0 pointer-events-none z-15"></div>
+
+                    <div id="space-interceptor" class="absolute bottom-6 w-14 h-14 sm:w-16 sm:h-16 pointer-events-none select-none transition-transform duration-75 flex flex-col items-center z-25" style="left: calc(50% - 32px);">
+                        <div class="absolute -bottom-2 w-4 h-6 bg-gradient-to-t from-transparent via-amber-500 to-rose-600 rounded-full animate-pulse opacity-85"></div>
+                        <svg class="w-full h-full drop-shadow-[0_0_10px_rgba(168,85,247,0.8)]" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M32 2L48 24L48 44L32 58L16 44L16 24L32 2Z" fill="url(#ship-grad)" stroke="#C084FC" stroke-width="2" stroke-linejoin="round"/>
+                            <path d="M32 12V36" stroke="#E2E8F0" stroke-width="2" stroke-linecap="round"/>
+                            <path d="M22 32H42" stroke="#E2E8F0" stroke-width="1.5" stroke-linecap="round"/>
+                            <path d="M12 36V48L8 50V38L12 36Z" fill="#A855F7" stroke="#C084FC" stroke-width="1"/>
+                            <path d="M52 36V48L56 50V38L52 36Z" fill="#A855F7" stroke="#C084FC" stroke-width="1"/>
+                            <path d="M32 16L38 28H26 L32 16Z" fill="#38BDF8" opacity="0.85"/>
+                            <defs>
+                                <linearGradient id="ship-grad" x1="32" y1="2" x2="32" y2="58" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#7C3AED"/>
+                                    <stop offset="1" stop-color="#EC4899"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+
+                </div>
+
+                <div class="block sm:hidden bg-slate-900/60 border-t border-purple-500/20 p-3 text-center text-xs text-slate-400 font-semibold uppercase tracking-widest flex-shrink-0">
+                    TAP ON SCREEN TO FIRE LASER
+                </div>
+
+            </section>
+
+            <section id="screen-gameover" class="hidden w-full max-w-3xl bg-slate-950/95 border-2 rounded-3xl p-4 sm:p-6 shadow-2xl backdrop-blur-xl flex flex-col space-y-4">
+                <div class="text-center space-y-2">
+                    <div id="gameover-badge" class="inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider"></div>
+                    <h2 id="gameover-title" class="text-xl sm:text-2xl font-extrabold">MISSION STATUS</h2>
+                    <p id="gameover-summary-txt" class="text-slate-300 text-xs sm:text-sm"></p>
+                </div>
+
+                <div id="learning-journey-teaser" class="bg-gradient-to-r from-purple-950/40 via-slate-900/95 to-pink-950/40 border border-purple-500/30 rounded-2xl p-4 text-left relative overflow-hidden shadow-lg">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-full blur-xl pointer-events-none animate-pulse"></div>
+                    <h4 class="text-xs sm:text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-400 uppercase tracking-widest flex items-center gap-2 mb-1.5">
+                        <i class="fa-solid fa-satellite-dish animate-bounce text-pink-400"></i> Incoming Transmission: The Next Frontier
+                    </h4>
+                    <p id="teaser-message" class="text-[11px] sm:text-xs text-slate-300 leading-relaxed">
+                        </p>
+                </div>
+
+                <div class="flex border-b border-slate-800">
+                    <button id="tab-recap" class="flex-1 py-2.5 text-xs sm:text-sm font-bold tracking-wider text-pink-400 border-b-2 border-pink-500 transition-all focus:outline-none flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-list-check"></i> DECRYPTION LOG
+                    </button>
+                    <button id="tab-leaderboard" class="flex-1 py-2.5 text-xs sm:text-sm font-bold tracking-wider text-slate-400 border-b-2 border-transparent hover:text-white hover:border-slate-700 transition-all focus:outline-none flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-ranking-stars"></i> GLOBAL LEADERBOARD
+                    </button>
+                </div>
+
+                <div id="panel-recap" class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 flex-grow overflow-hidden flex flex-col max-h-[60vh]">
+                    <div id="gameover-recap-list" class="flex-grow overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-purple-600">
+                        </div>
+                </div>
+
+                <div id="panel-leaderboard" class="hidden bg-slate-900/80 border border-slate-800 rounded-xl p-4 flex-grow overflow-hidden flex flex-col max-h-[60vh]">
+                    <div class="overflow-x-auto w-full flex-grow scrollbar-thin">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="border-b border-slate-800 text-purple-400 uppercase tracking-wider text-[10px]">
+                                    <th class="py-2.5 pl-3">Rank</th>
+                                    <th class="py-2.5">Pilot</th>
+                                    <th class="py-2.5 text-right">Score</th>
+                                    <th class="py-2.5 pr-3 text-right">Identifier</th>
+                                </tr>
+                            </thead>
+                            <tbody id="global-scores-list" class="divide-y divide-slate-800/50">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button id="restart-game-btn" class="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 font-bold rounded-xl text-sm sm:text-base tracking-wider transition-all shadow-[0_0_15px_rgba(236,72,153,0.3)] hover:scale-[101%] active:scale-95 text-white">
+                        RESTART SIMULATION <i class="fa-solid fa-rotate-right ms-2"></i>
+                    </button>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script>
+        class SoundSynth {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (this.ctx) return;
+                try {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                } catch (e) {
+                    console.error("Web Audio API not supported", e);
+                }
+            }
+
+            playLaser() {
+                if (this.muted || !this.ctx) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(880, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.15);
+                
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
+
+            playExplosion() {
+                if (this.muted || !this.ctx) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(100, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.35);
+                
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.4);
+            }
+
+            playCorrect() {
+                if (this.muted || !this.ctx) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.setValueAtTime(600, this.ctx.currentTime + 0.08);
+                osc.frequency.setValueAtTime(1200, this.ctx.currentTime + 0.16);
+                
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+
+            playGameOver(victory = false) {
+                if (this.muted || !this.ctx) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                
+                if (victory) {
+                    const notes = [261.63, 329.63, 392.00, 523.25];
+                    // C E G C
+                    notes.forEach((freq, idx) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                   
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+                        gain.gain.setValueAtTime(0.15, now + idx * 0.12);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.12 + 0.25);
+    
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now + idx * 0.12);
+                        osc.stop(now + idx * 0.12 + 0.25);
+                    });
+                } else {
+                    const notes = [196.00, 164.81, 130.81];
+                    // G E C
+                    notes.forEach((freq, idx) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                    
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.18);
+                        gain.gain.setValueAtTime(0.15, now + idx * 0.18);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.18 + 0.3);
+     
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now + idx * 0.18);
+                        osc.stop(now + idx * 0.18 + 0.3);
+                    });
+                }
+            }
+        }
+        const audio = new SoundSynth();
+
+        const GAME_WAVES = [
+            {
+                myth: "AI tools work the same across all use cases.",
+                realities: ["Different tools are optimized for different tasks.", "Choosing the right tool is part of the skill."],
+                explanation: "AI models are highly specialized. A model trained for text generation will fail at numerical forecasting, making precise tool selection a critical skill."
+            },
+            {
+                myth: "AI replaces critical thinking.",
+                realities: ["AI augments thinking, it doesn’t replace it.", "Better thinking leads to better AI outcomes."],
+                explanation: "AI provides rapid information processing, but human judgment, context evaluation, and strategic foresight remain completely irreplaceable."
+            },
+            {
+                myth: "AI is all about automations.",
+                realities: ["AI enables better decision-making, not just faster execution.", "The real value lies in redesigning how work gets done."],
+                explanation: "While AI can automate routine tasks, its highest value comes from augmenting complex decision-making and transforming entire workflows."
+            },
+            {
+                myth: "One good prompt works every time.",
+                realities: ["Iteration is key to getting better results.", "Refining prompts is part of using AI effectively."],
+                explanation: "Language models respond dynamically to constraints. Achieving optimal outputs requires an iterative process of testing, refining, and adjusting prompts."
+            },
+            {
+                myth: "AI understands context like humans do.",
+                realities: ["AI understands patterns, not intent.", "Clear instructions improve output drastically."],
+                explanation: "AI lacks real-world comprehension and emotional intelligence; it relies entirely on statistical pattern matching from its training data."
+            },
+            {
+                myth: "AI can solve any business problem.",
+                realities: ["AI works best on clearly defined problems.", "Poor problem framing leads to poor results."],
+                explanation: "AI is a powerful mathematical tool, not a magic wand. If a business problem is vaguely defined or lacks relevant data, AI cannot solve it."
+            },
+            {
+                myth: "High accuracy means the model will always work in real scenarios.",
+                realities: ["A model can perform well in testing but fail in real life.", "Choosing the right metric is important."],
+                explanation: "Models can memorize test data (overfitting) or face real-world data that looks completely different (data drift), causing sudden deployment failures."
+            },
+            {
+                myth: "Once built, an AI model never needs improvement.",
+                realities: ["AI models need testing before use.", "Results can change if data changes."],
+                explanation: "As real-world behaviors and data inputs drift over time, models degrade in quality. Continuous monitoring and retraining are strictly required."
+            },
+            {
+                myth: "The longer the prompt, the better the output.",
+                realities: ["AI tools need proper instructions (prompts).", "Structured inputs improve output quality."],
+                explanation: "Clarity and structure matter far more than length. A concise, well-formatted prompt with specific constraints consistently outperforms a rambling one."
+            },
+            {
+                myth: "AI success = better model performance.",
+                realities: ["Success is about making better decisions, not just better predictions.", "Real impact comes from the full flow — data → model → action → feedback."],
+                explanation: "A highly accurate model is useless if it isn't seamlessly integrated into a business workflow that drives measurable actions and feedback."
+            }
+        ];
+
+        const state = {
+            isPlaying: false,
+            currentWaveIdx: 0,
+            score: 0,
+            shields: 3,
+            tileSpeed: 0.12, 
+            shipXPercent: 50,
+            lasers: [],
+            tiles: [],
+            particles: [],
+            scoreHistory: [],
+            keysDown: {},
+            lastTime: 0,
+            hasCollidedThisWave: false,
+            lastFiredTime: 0,
+            pilotName: "RECRUIT"
+        };
+        const elStartScreen = document.getElementById('screen-start');
+        const elGameScreen = document.getElementById('screen-game');
+        const elGameOverScreen = document.getElementById('screen-gameover');
+        const elInterceptor = document.getElementById('space-interceptor');
+        const elGameStage = document.getElementById('game-stage');
+
+        function showScreen(target) {
+            elStartScreen.classList.add('hidden');
+            elGameScreen.classList.add('hidden');
+            elGameOverScreen.classList.add('hidden');
+            
+            target.classList.remove('hidden');
+            if (target === elGameScreen) {
+                document.body.classList.add('game-active');
+            } else {
+                document.body.classList.remove('game-active');
+            }
+            window.scrollTo({ top: 0, behavior: 'instant' });
+        }
+    </script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // Global integration fields supplied by environment or fallback mock config
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'cosmic-myth-blaster-ai';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db = null;
+        let auth = null;
+        let currentUserId = "PILOT_" + Math.floor(1000 + Math.random() * 9000);
+        let useLocalBackup = false;
+
+        // Default local scoreboard entries
+        const DEFAULT_LOCAL_SCORES = [
+            { name: "COSMIC_ACE", score: 1000, userId: "PILOT_7721" },
+            { name: "DATA_DRIVER", score: 800, userId: "PILOT_1452" },
+            { name: "VECTOR_SHIELD", score: 500, userId: "PILOT_8829" }
+        ];
+
+        // Initialize local storage database structure
+        function getLocalLeaderboard() {
+            try {
+                const stored = localStorage.getItem('mythblaster_leaderboard');
+                if (stored) return JSON.parse(stored);
+            } catch (e) {
+                console.warn("Storage restricted: ", e);
+            }
+            return [...DEFAULT_LOCAL_SCORES];
+        }
+
+        function saveLocalLeaderboard(scores) {
+            try {
+                localStorage.setItem('mythblaster_leaderboard', JSON.stringify(scores));
+            } catch (e) {
+                console.warn("Could not write to local storage: ", e);
+            }
+        }
+
+        // Initialize connections asynchronously with strict fallback routing
+        async function startDatabase() {
+            if (!firebaseConfig) {
+                switchToLocalMode("Local Mode");
+                return;
+            }
+
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Auth Before Queries Rule 3 Verification
+                if (initialAuthToken) {
+                    const cred = await signInWithCustomToken(auth, initialAuthToken);
+                    currentUserId = cred.user.uid;
+                } else {
+                    const cred = await signInAnonymously(auth);
+                    currentUserId = cred.user.uid;
+                }
+                console.log("Stellar Pilot Cloud Link Established: " + currentUserId);
+                // Track cloud state and pull high scores safely
+                subscribeLeaderboard();
+            } catch (error) {
+                // Graceful degradation block for network failures in sandbox iframes
+                console.warn("Database sync failed. Safely transitioning to local backup profile. Error details: ", error.message);
+                switchToLocalMode("Local Sandbox");
+            }
+        }
+
+        // Force system into offline fallback mode
+        function switchToLocalMode(label) {
+            useLocalBackup = true;
+            const indicator = document.getElementById('sync-indicator');
+            if (indicator) {
+                indicator.innerHTML = `<i class="fa-solid fa-server text-cyan-400 mr-1"></i>${label}`;
+            }
+            
+            // Draw original local database array
+            const localData = getLocalLeaderboard();
+            localData.sort((a, b) => b.score - a.score);
+            renderLeaderboards(localData);
+        }
+
+        // Subscribe to public score table using Strict Paths (Rule 1) & No Complex Queries (Rule 2)
+        function subscribeLeaderboard() {
+            if (useLocalBackup || !db || !currentUserId) return;
+            // Rule 1: Strict collection path schema
+            const scoresCollection = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+            // Rule 2: Fetch raw and sort locally inside memory (prevents complex query index failures)
+            onSnapshot(scoresCollection, (snapshot) => {
+                const allRuns = [];
+                snapshot.forEach((doc) => {
+                    allRuns.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Memory sort
+                allRuns.sort((a, b) => b.score - a.score);
+
+                renderLeaderboards(allRuns);
+                document.getElementById('sync-indicator').innerHTML = '<i class="fa-solid fa-cloud-bolt text-green-400 mr-1 animate-pulse"></i>Live synced';
+            }, (error) => {
+                console.warn("Leaderboard subscription offline, fallback to local database: ", error);
+                switchToLocalMode("Local Sandbox");
+            });
+        }
+
+        // Render sorted metrics inside elements
+        function renderLeaderboards(runs) {
+            // Quick Dashboard Standings (top 3)
+            const elQuickList = document.getElementById('quick-high-scores');
+            if (!elQuickList) return;
+            elQuickList.innerHTML = '';
+            
+            const topThree = runs.slice(0, 3);
+            if (topThree.length === 0) {
+                elQuickList.innerHTML = '<p class="text-[11px] text-slate-500 italic">No pilots have completed a mission yet. Set the first record!</p>';
+            } else {
+                topThree.forEach((run, idx) => {
+                    const iconColor = idx === 0 ? 'text-amber-400' : idx === 1 ? 'text-slate-300' : 'text-amber-600';
+                    const name = run.name ? run.name.toUpperCase() : "ANONYMOUS";
+                    const item = document.createElement('div');
+                    item.className = "flex justify-between items-center text-[11px]";
+                    item.innerHTML = `
+                        <span class="truncate max-w-[120px] font-bold text-slate-300">
+                            <i class="fa-solid fa-award ${iconColor} mr-1"></i> ${name}
+                        </span>
+                        <span class="font-bold text-green-400 arcade-font text-[10px]">${run.score}</span>
+                    `;
+                    elQuickList.appendChild(item);
+                });
+            }
+
+            // Expanded Full Results Standings on gameover tab
+            const elFullTable = document.getElementById('global-scores-list');
+            if (!elFullTable) return;
+            elFullTable.innerHTML = '';
+
+            if (runs.length === 0) {
+                elFullTable.innerHTML = `<tr><td colspan="4" class="py-4 text-center italic text-slate-500">Zero database runs saved.</td></tr>`;
+            } else {
+                runs.forEach((run, idx) => {
+                    const tr = document.createElement('tr');
+                    const isSelf = run.userId === currentUserId ? "bg-purple-950/20 text-purple-200 border-l-2 border-l-purple-500 font-bold" : "";
+                    const badge = idx === 0 ? "🏆" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `${idx + 1}`;
+                    const sanitizedName = run.name ? run.name.toUpperCase() : "ANONYMOUS PILOT";
+                    
+                    tr.className = `border-b border-slate-800/40 hover:bg-slate-900/40 transition-colors ${isSelf}`;
+                    tr.innerHTML = `
+                        <td class="py-2.5 pl-3 text-slate-300 font-bold arcade-font text-[10px]">${badge}</td>
+                        <td class="py-2.5 font-semibold text-slate-100 max-w-[150px] truncate">${sanitizedName}</td>
+                        <td class="py-2.5 text-right font-bold text-green-400 arcade-font text-[10px]">${run.score}</td>
+                        <td class="py-2.5 pr-3 text-right text-[10px] text-slate-500 tracking-wider font-mono">${run.userId || 'N/A'}</td>
+                    `;
+                    elFullTable.appendChild(tr);
+                });
+            }
+        }
+
+        // Push record securely following Rule 3 Verification & Rule 1 Paths
+        async function commitScoreToCloud(scoreVal) {
+            if (useLocalBackup) {
+                // Local write logic
+                const localData = getLocalLeaderboard();
+                localData.push({
+                    userId: currentUserId,
+                    name: state.pilotName || "RECRUIT_PILOT",
+                    score: scoreVal,
+                    timestamp: Date.now()
+                });
+                localData.sort((a, b) => b.score - a.score);
+                saveLocalLeaderboard(localData);
+                renderLeaderboards(localData);
+                console.log("Score logged in local storage database successfully!");
+                return;
+            }
+
+            if (!db || !currentUserId) return;
+            try {
+                const targetCollection = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+                await addDoc(targetCollection, {
+                    userId: currentUserId,
+                    name: state.pilotName || "RECRUIT_PILOT",
+                    score: scoreVal,
+                    timestamp: Date.now()
+                });
+                console.log("Score logged in database successfully!");
+            } catch (error) {
+                console.warn("Cloud push failed, saving locally: ", error);
+                // Failover backup save
+                const localData = getLocalLeaderboard();
+                localData.push({
+                    userId: currentUserId,
+                    name: state.pilotName || "RECRUIT_PILOT",
+                    score: scoreVal,
+                    timestamp: Date.now()
+                });
+                localData.sort((a, b) => b.score - a.score);
+                saveLocalLeaderboard(localData);
+                renderLeaderboards(localData);
+            }
+        }
+
+        // Connect back-end elements with gameplay triggers
+        window.addEventListener('DOMContentLoaded', () => {
+            startDatabase();
+            
+            // Wire the form field value capture to name sync
+            const elInput = document.getElementById('pilot-nickname');
+            
+            // Populate random cadet ID originally as fallback default placeholder
+            const randomID = Math.floor(1000 + Math.random() * 9000);
+            elInput.placeholder = `CADET_${randomID}`;
+            state.pilotName = `CADET_${randomID}`;
+
+            elInput.addEventListener('input', (e) => {
+                let text = e.target.value.trim().replace(/[^a-zA-Z0-9_\-]/g, ""); // sanitize name characters
+                if (text) {
+                    state.pilotName = text.toUpperCase();
+                } else {
+                    state.pilotName = `CADET_${randomID}`;
+                }
+            });
+        });
+
+        // Expose database log interface
+        window.cloudScores = {
+            commitScore: commitScoreToCloud
+        };
+    </script>
+
+    <script>
+        function initControls() {
+            window.addEventListener('keydown', (e) => {
+                state.keysDown[e.key] = true;
+                if (e.key === ' ' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    fireLaser();
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                state.keysDown[e.key] = false;
+            });
+
+            elGameStage.addEventListener('mousemove', (e) => {
+                if (!state.isPlaying) return;
+                const bounds = elGameStage.getBoundingClientRect();
+                const relativeX = e.clientX - bounds.left;
+                let pct = (relativeX / bounds.width) * 100;
+                setShipPosition(pct);
+            });
+
+            elGameStage.addEventListener('touchmove', (e) => {
+                if (!state.isPlaying) return;
+                const bounds = elGameStage.getBoundingClientRect();
+                const relativeX = e.touches[0].clientX - bounds.left;
+                let pct = (relativeX / bounds.width) * 100;
+                setShipPosition(pct);
+                e.preventDefault();
+            }, { passive: false });
+
+            elGameStage.addEventListener('pointerdown', (e) => {
+                if (!state.isPlaying) return;
+                fireLaser();
+            });
+        }
+
+        function setShipPosition(pct) {
+            pct = Math.max(5, Math.min(95, pct));
+            state.shipXPercent = pct;
+            elInterceptor.style.left = `calc(${pct}% - 28px)`;
+        }
+
+        function fireLaser() {
+            const now = Date.now();
+            if (now - state.lastFiredTime < 280) return; // rate limit firing
+            state.lastFiredTime = now;
+            audio.playLaser();
+            
+            const laser = {
+                x: state.shipXPercent,
+                y: 80, 
+                el: document.createElement('div')
+            };
+
+            laser.el.className = 'absolute w-1 h-6 bg-gradient-to-t from-pink-500 to-purple-400 rounded-full drop-shadow-[0_0_8px_#ec4899] transition-transform duration-75 z-20';
+            laser.el.style.left = `calc(${laser.x}% - 2px)`;
+            laser.el.style.top = `${laser.y}%`;
+            
+            document.getElementById('lasers-container').appendChild(laser.el);
+            state.lasers.push(laser);
+
+            elInterceptor.classList.add('scale-95');
+            setTimeout(() => elInterceptor.classList.remove('scale-95'), 100);
+        }
+
+        function spawnParticles(x, y, color) {
+            const container = document.getElementById('particles-container');
+            for (let i = 0; i < 15; i++) {
+                const part = {
+                    x: x + (Math.random() - 0.5) * 8,
+                    y: y + (Math.random() - 0.5) * 8,
+                    vx: (Math.random() - 0.5) * 3,
+                    vy: (Math.random() - 0.5) * 3 - 1,
+                    alpha: 1,
+                    el: document.createElement('div')
+                };
+                part.el.className = 'absolute w-1.5 h-1.5 rounded-full z-20 pointer-events-none';
+                part.el.style.backgroundColor = color;
+                part.el.style.boxShadow = `0 0 8px ${color}`;
+                part.el.style.left = `${part.x}%`;
+                part.el.style.top = `${part.y}%`;
+                container.appendChild(part.el);
+                state.particles.push(part);
+            }
+        }
+
+        function updateParticles() {
+            for (let i = state.particles.length - 1; i >= 0; i--) {
+                const p = state.particles[i];
+                p.x += p.vx * 0.15;
+                p.y += p.vy * 0.15;
+                p.alpha -= 0.025;
+                if (p.alpha <= 0) {
+                    p.el.remove();
+                    state.particles.splice(i, 1);
+                } else {
+                    p.el.style.left = `${p.x}%`;
+                    p.el.style.top = `${p.y}%`;
+                    p.el.style.opacity = p.alpha;
+                }
+            }
+        }
+
+        function startGame() {
+            audio.init();
+            state.score = 0;
+            state.shields = 3;
+            state.currentWaveIdx = 0;
+            state.scoreHistory = [];
+            showScreen(elGameScreen);
+            startNextWave();
+        }
+
+        function startNextWave() {
+            state.lasers.forEach(l => l.el.remove());
+            state.tiles.forEach(t => t.el.remove());
+            state.particles.forEach(p => p.el.remove());
+            state.lasers = [];
+            state.tiles = [];
+            state.particles = [];
+            state.hasCollidedThisWave = false;
+            document.getElementById('tiles-container').innerHTML = '';
+            document.getElementById('lasers-container').innerHTML = '';
+            document.getElementById('particles-container').innerHTML = '';
+
+            updateHud();
+
+            const waveData = GAME_WAVES[state.currentWaveIdx];
+            // Trigger "NEXT WAVE INCOMING" banner instantly (Flashes and fades out)
+            const textEl = document.getElementById('wave-pulse-text');
+            const wrapEl = document.getElementById('wave-pulse-overlay');
+            textEl.textContent = `WAVE ${state.currentWaveIdx + 1}: INCOMING`;
+            wrapEl.style.opacity = '1';
+            setTimeout(() => {
+                wrapEl.style.opacity = '0';
+            }, 1800);
+
+            // Spawning exactly 1 Myth and 2 Realities (3 total)
+            const pool = [
+                { text: waveData.myth, isMyth: true },
+                { text: waveData.realities[0], isMyth: false },
+                { text: waveData.realities[1], isMyth: false }
+            ];
+
+            // Randomize lane positions
+            const randomized = pool.sort(() => Math.random() - 0.5);
+            // Width of 3 tiles = 28% each, with beautiful gaps
+            const lanePositions = [2.5, 36.0, 69.5];
+
+            randomized.forEach((dataItem, idx) => {
+                const el = document.createElement('div');
+                el.className = 'absolute p-2 sm:p-3 rounded-2xl border-2 border-purple-500/35 bg-slate-900/95 text-center flex flex-col items-center justify-center transition-all duration-75 text-[9px] sm:text-[13px] leading-snug sm:leading-relaxed z-10 shadow-lg select-none min-h-[90px] h-auto';
+                
+                el.style.width = '28%';
+                el.style.left = `${lanePositions[idx]}%`;
+                el.style.top = `0%`; // Starts exactly at the top edge of screen, fully visible immediately
+                
+                el.innerHTML = `
+                    <div class="text-[9px] font-bold text-slate-500 mb-1 uppercase tracking-wider hidden sm:block">OPTION ${idx + 1}</div>
+                    <div class="text-slate-100 font-semibold text-center select-none">${dataItem.text}</div>
+                `;
+
+                document.getElementById('tiles-container').appendChild(el);
+                state.tiles.push({
+                    el,
+                    isMyth: dataItem.isMyth,
+                    text: dataItem.text,
+                    y: 0, 
+                    left: lanePositions[idx],
+                    width: 28,
+                    heightPct: 22 
+                });
+            });
+
+            state.isPlaying = true;
+            state.lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function gameLoop(now) {
+            if (!state.isPlaying) return;
+            const dt = (now - state.lastTime) / 16.666;
+            state.lastTime = now;
+
+            let horizontalDirection = 0;
+            if (state.keysDown['ArrowLeft'] || state.keysDown['a'] || state.keysDown['A']) horizontalDirection = -1.2;
+            if (state.keysDown['ArrowRight'] || state.keysDown['d'] || state.keysDown['D']) horizontalDirection = 1.2;
+            if (horizontalDirection !== 0) {
+                setShipPosition(state.shipXPercent + (horizontalDirection * dt));
+            }
+
+            // Move Tiles downward (Slower, readable pace)
+            state.tiles.forEach(t => {
+                t.y += state.tileSpeed * dt;
+                t.el.style.top = `${t.y}%`;
+                
+                if (t.y > 55) {
+                    t.el.classList.add('border-rose-500/40');
+                }
+            });
+
+            // Move Lasers upward
+            for (let i = state.lasers.length - 1; i >= 0; i--) {
+                const l = state.lasers[i];
+                l.y -= 1.8 * dt; 
+                l.el.style.top = `${l.y}%`;
+
+                if (l.y < -5) {
+                    l.el.remove();
+                    state.lasers.splice(i, 1);
+                }
+            }
+
+            updateParticles();
+            checkCollisions();
+
+            if (!state.hasCollidedThisWave) {
+                const escapedTile = state.tiles.find(t => t.y >= 75);
+                if (escapedTile) {
+                    state.hasCollidedThisWave = true;
+                    processRoundResult(null, escapedTile);
+                }
+            }
+
+            if (state.isPlaying) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function checkCollisions() {
+            if (state.hasCollidedThisWave) return;
+            for (let lIdx = state.lasers.length - 1; lIdx >= 0; lIdx--) {
+                const l = state.lasers[lIdx];
+                for (let tIdx = 0; tIdx < state.tiles.length; tIdx++) {
+                    const t = state.tiles[tIdx];
+                    const withinX = (l.x >= t.left) && (l.x <= (t.left + t.width));
+                    const withinY = (l.y <= (t.y + t.heightPct)) && (l.y >= t.y);
+                    if (withinX && withinY) {
+                        state.hasCollidedThisWave = true;
+                        const burstColor = t.isMyth ? '#a855f7' : '#ec4899';
+                        spawnParticles(l.x, l.y, burstColor);
+                        
+                        l.el.remove();
+                        state.lasers.splice(lIdx, 1);
+                        
+                        processRoundResult(t, null);
+                        return;
+                    }
+                }
+            }
+        }
+
+        function processRoundResult(hitTile, escapedTile) {
+            state.isPlaying = false;
+            let isBusted = false;
+            let feedbackText = "";
+            let colorClass = "";
+            let logStatus = "SKIPPED";
+
+            if (hitTile) {
+                if (hitTile.isMyth) {
+                    isBusted = true;
+                    state.score += 100;
+                    feedbackText = "MYTH BUSTED! +100";
+                    colorClass = "text-green-400 bg-green-950/90 border-green-500/50";
+                    audio.playCorrect();
+                    logStatus = "SUCCESSFULLY BUSTED";
+                } else {
+                    state.shields--;
+                    feedbackText = "REALITY DAMAGED! -1 SHIELD";
+                    colorClass = "text-rose-400 bg-rose-950/90 border-rose-500/50";
+                    audio.playExplosion();
+                    logStatus = "REALITY INCORRECTLY HIT";
+                    triggerArenaShake();
+                }
+            } else if (escapedTile) {
+                state.shields--;
+                feedbackText = "MYTH ESCAPED! -1 SHIELD";
+                colorClass = "text-rose-400 bg-rose-950/90 border-rose-500/50";
+                audio.playExplosion();
+                logStatus = "MYTH ESCAPED DETECTORS";
+                triggerArenaShake();
+            }
+
+            state.scoreHistory.push({
+                wave: state.currentWaveIdx + 1,
+                myth: GAME_WAVES[state.currentWaveIdx].myth,
+                realities: GAME_WAVES[state.currentWaveIdx].realities,
+                explanation: GAME_WAVES[state.currentWaveIdx].explanation,
+                status: logStatus,
+                isCorrect: isBusted
+            });
+
+            showFeedbackBubble(feedbackText, colorClass);
+            updateHud();
+
+            setTimeout(() => {
+                if (state.shields <= 0) {
+                    endGame(false);
+                } else {
+                    state.currentWaveIdx++;
+                    if (state.currentWaveIdx < GAME_WAVES.length) {
+                        startNextWave();
+                    } else {
+                        endGame(true);
+                    }
+                }
+            }, 1000);
+        }
+
+        function triggerArenaShake() {
+            const elStage = document.getElementById('screen-game');
+            elStage.classList.add('shake-active');
+            setTimeout(() => elStage.classList.remove('shake-active'), 350);
+        }
+
+        function showFeedbackBubble(text, cssClasses) {
+            const bubble = document.getElementById('feedback-bubble');
+            const overlay = document.getElementById('instant-feedback-overlay');
+            
+            bubble.className = `px-5 py-3 rounded-2xl font-extrabold uppercase tracking-widest text-center border text-xs sm:text-base ${cssClasses}`;
+            bubble.textContent = text;
+            overlay.classList.remove('opacity-0', 'scale-90');
+            overlay.classList.add('opacity-100', 'scale-100');
+            
+            setTimeout(() => {
+                overlay.classList.remove('opacity-100', 'scale-100');
+                overlay.classList.add('opacity-0', 'scale-90');
+            }, 900);
+        }
+
+        function updateHud() {
+            const currentWaveNum = Math.min(10, state.currentWaveIdx + 1);
+            document.getElementById('hud-wave').textContent = `${currentWaveNum}/10`;
+            document.getElementById('hud-score').textContent = String(state.score).padStart(4, '0');
+            
+            document.getElementById('mob-hud-wave').textContent = `${currentWaveNum}/10`;
+            document.getElementById('mob-hud-score').textContent = String(state.score).padStart(4, '0');
+
+            const renderShields = (containerId) => {
+                const container = document.getElementById(containerId);
+                container.innerHTML = '';
+                for (let i = 0; i < 3; i++) {
+                    const heart = document.createElement('i');
+                    if (i < state.shields) {
+                        heart.className = 'fa-solid fa-heart animate-pulse mx-0.5 text-rose-500';
+                    } else {
+                        heart.className = 'fa-regular fa-heart mx-0.5 text-slate-700';
+                    }
+                    container.appendChild(heart);
+                }
+            };
+
+            renderShields('hud-shields');
+            renderShields('mob-hud-shields');
+        }
+
+        function endGame(won) {
+            state.isPlaying = false;
+            audio.playGameOver(won);
+            showScreen(elGameOverScreen);
+
+            // Sync score to cloud database anonymously
+            if (window.cloudScores && typeof window.cloudScores.commitScore === 'function') {
+                window.cloudScores.commitScore(state.score);
+            }
+
+            const badge = document.getElementById('gameover-badge');
+            const title = document.getElementById('gameover-title');
+            const summary = document.getElementById('gameover-summary-txt');
+            const teaserMsg = document.getElementById('teaser-message');
+
+            // Force view back to first tab upon completion
+            toggleGameOverTab('recap');
+
+            if (won) {
+                badge.className = "inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-green-500/20 text-green-400 border border-green-500/30";
+                badge.textContent = "MISSION ACCOMPLISHED";
+                title.textContent = "COSMIC DECRYPTOR: VICTORY";
+                title.className = "text-xl sm:text-2xl font-extrabold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent";
+                summary.textContent = `Outstanding effort, Pilot ${state.pilotName}! You protected all system realities and achieved an elite final clearance score of ${state.score} points!`;
+                // Teaser for winning scenario
+                teaserMsg.innerHTML = `Excellent work clearing the baseline sectors!
+                This arcade simulation was only a preliminary scan of your capabilities.
+                The real, uncharted data landscape is infinitely vast and rapidly changing.
+                Our upcoming <strong>Advanced AI & Data Science Journey</strong> is gearing up for departure, and it will challenge everything you think you know about real-world deployment.
+                Keep your navigation coordinate vectors logged—your true training expedition launches very soon!`;
+            } else {
+                badge.className = "inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30";
+                badge.textContent = "CRITICAL DEFECT DETECTED";
+                title.textContent = "MISSION ABORTED";
+                title.className = "text-xl sm:text-2xl font-extrabold bg-gradient-to-r from-rose-400 to-pink-500 bg-clip-text text-transparent";
+                summary.textContent = `Shields collapsed under the weight of system misconceptions. Pilot ${state.pilotName}, your final score is ${state.score} points.
+                Review the decrypts below or check the global pilot stands to prepare for your next run.`;
+                // Teaser for losing scenario
+                teaserMsg.innerHTML = `A temporary setback in the simulator, but real-world engineering is built on iteration.
+                You've identified exactly which myths broke through your shield lines—now it's time to acquire the high-fidelity tools to patch those system vulnerabilities.
+                Our upcoming <strong>Advanced AI & Data Science Journey</strong> is preparing to open its flight gates, engineered to transform these gaps into your strongest assets.
+                Keep your pilot console powered on—departure preparations are underway.`;
+            }
+
+            const listContainer = document.getElementById('gameover-recap-list');
+            listContainer.innerHTML = '';
+
+            const fullRecapLog = GAME_WAVES.map((waveItem, index) => {
+                const historyMatch = state.scoreHistory.find(h => h.wave === (index + 1));
+                return {
+                    wave: index + 1,
+                    myth: waveItem.myth,
+                    realities: waveItem.realities,
+                    explanation: waveItem.explanation,
+                    status: historyMatch ? historyMatch.status : "NOT REACHED",
+                    isCorrect: historyMatch ? historyMatch.isCorrect : false
+                };
+            });
+
+            fullRecapLog.forEach((log) => {
+                const card = document.createElement('div');
+                
+                let badgeClass = "bg-slate-800 text-slate-400 border-slate-700";
+                if (log.status === "SUCCESSFULLY BUSTED") {
+                    badgeClass = "bg-green-950/40 text-green-400 border-green-500/30";
+                } else if (log.status !== "NOT REACHED") {
+                    badgeClass = "bg-rose-950/40 text-rose-400 border-rose-500/30";
+                }
+
+                card.className = "p-4 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-2.5 transition-all duration-150 hover:border-purple-500/30 text-left";
+                
+                card.innerHTML = `
+                    <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <span class="font-bold text-purple-400 tracking-wider">WAVE ${log.wave}</span>
+                        <span class="border px-2 py-0.5 rounded text-[9px] font-bold uppercase ${badgeClass}">${log.status}</span>
+                    </div>
+                    
+                    <div class="space-y-1.5 text-xs">
+                        <p class="font-semibold text-slate-100 flex items-start gap-1.5">
+                            <i class="fa-solid fa-circle-xmark text-rose-500 mt-0.5"></i>
+                            <span><strong class="text-rose-400">Myth:</strong> ${log.myth}</span>
+                        </p>
+                        
+                        <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80 space-y-1.5">
+                            <p class="text-slate-200 font-medium text-[11px] uppercase tracking-wider text-green-400 flex items-center gap-1">
+                                <i class="fa-solid fa-circle-check text-green-400"></i> Scientific Realities
+                            </p>
+                            <ul class="list-disc list-inside text-slate-300 space-y-1 pl-1 text-[11px]">
+                                <li>${log.realities[0]}</li>
+                                <li>${log.realities[1]}</li>
+                            </ul>
+                        </div>
+
+                        <p class="text-slate-400 text-[11px] leading-relaxed italic mt-2 pt-1 border-t border-slate-800/50">
+                            <strong>Explanation:</strong> ${log.explanation}
+                        </p>
+                    </div>
+                `;
+                listContainer.appendChild(card);
+            });
+        }
+
+        // Tab toggle management inside results layout
+        function toggleGameOverTab(targetTab) {
+            const btnRecap = document.getElementById('tab-recap');
+            const btnLeaderboard = document.getElementById('tab-leaderboard');
+            const panelRecap = document.getElementById('panel-recap');
+            const panelLeaderboard = document.getElementById('panel-leaderboard');
+
+            if (targetTab === 'recap') {
+                btnRecap.className = "flex-1 py-2.5 text-xs sm:text-sm font-bold tracking-wider text-pink-400 border-b-2 border-pink-500 transition-all focus:outline-none flex items-center justify-center gap-2";
+                btnLeaderboard.className = "flex-1 py-2.5 text-xs sm:text-sm font-bold tracking-wider text-slate-400 border-b-2 border-transparent hover:text-white hover:border-slate-700 transition-all focus:outline-none flex items-center justify-center gap-2";
+                panelRecap.classList.remove('hidden');
+                panelLeaderboard.classList.add('hidden');
+            } else {
+                btnLeaderboard.className = "flex-1 py-2.5 text-xs sm:text-sm font-bold tracking-wider text-pink-400 border-b-2 border-pink-500 transition-all focus:outline-none flex items-center justify-center gap-2";
+                btnRecap.className = "flex-1 py-2.5 text-xs sm:text-sm font-bold tracking-wider text-slate-400 border-b-2 border-transparent hover:text-white hover:border-slate-700 transition-all focus:outline-none flex items-center justify-center gap-2";
+                panelLeaderboard.classList.remove('hidden');
+                panelRecap.classList.add('hidden');
+            }
+        }
+
+        document.getElementById('start-game-btn').addEventListener('click', startGame);
+        document.getElementById('restart-game-btn').addEventListener('click', startGame);
+        
+        document.getElementById('tab-recap').addEventListener('click', () => toggleGameOverTab('recap'));
+        document.getElementById('tab-leaderboard').addEventListener('click', () => toggleGameOverTab('leaderboard'));
+
+        document.getElementById('toggle-audio-btn').addEventListener('click', () => {
+            audio.muted = !audio.muted;
+            const icon = document.getElementById('audio-icon');
+            if (audio.muted) {
+                icon.className = 'fa-solid fa-volume-xmark text-rose-500';
+            } else {
+                icon.className = 'fa-solid fa-volume-high text-slate-300';
+            }
+        });
+
+        initControls();
+        showScreen(elStartScreen);
+    </script>
+</body>
+</html>
